@@ -17,7 +17,7 @@ const linkHostPort = 60157
 // will simply act like a ProPresenter instance
 // with Link enabled waiting for a group/add_member
 // request from others.
-const connectOnStart = false;
+const connectOnStart = true;
 
 
 // LOCAL DATA OBJECTS ================================
@@ -30,6 +30,7 @@ const connectOnStart = false;
 const me = {
   ip: '127.0.0.1',
   port: 60000,
+  connected: false,
   name: 'masquerader',
   platform: "mac",
   os_version: "10.15.6",
@@ -46,6 +47,28 @@ const group = {
   members: [],
   members_by_ip: {},
 }
+
+// NON-CONFIGURATION CONSTANTS ==========================
+const term = {
+  home: '\r',
+  esc: '\u001b',
+  reset: '\u001b[0m',
+  black: '\u001b[30m',
+  red: '\u001b[31m',
+  green: '\u001b[32m',
+  yellow: '\u001b[33m',
+  blue: '\u001b[34m',
+  magenta: '\u001b[35m',
+  cyan: '\u001b[36m',
+  white: '\u001b[37m',
+  color: ( n ) => n == null ? `\u001b[0m` : `\u001b[3${n}m`,
+  up: ( n ) => `\u001b[${n}A`,
+  down: ( n ) => `\u001b[${n}B`,
+  right: ( n ) => `\u001b[${n}C`,
+  left: ( n ) => `\u001b[${n}D`,
+}
+
+// FUNCTIONS ============================================
 
 // the Network Link API returns a timestamp with heartbeat
 // and group/status requests, but the actual data seems to
@@ -179,15 +202,19 @@ const handleRequest = function ( req, res ) {
 
     // log the request details and results unless it should be hidden
     if ( req.path != '/heartbeat' || logHeartbeats ) {
-      console.log( `\nEVENT: ${req.url}` );
+      showStatus.advanceFirst = true;
+      console.log( `\n${term.yellow}EVENT: ${req.url}${term.reset}` );
       // console.dir( req.headers, { depth: 4 } )
       // console.log( req.url )
       // console.log( `${req.method} ${req.url}` )
       console.dir( req.data ?? req.body )
       if ( reply != '' ) {
-        console.log( '\nSENDING REPLY:' )
+        console.log( `\n${term.yellow}SENDING REPLY:${term.reset}` )
         console.log( reply )
       }
+    }
+    if ( req.path == '/heartbeat' ) {
+      showStatus();
     }
     res.setHeader( 'accept', '*/*' );
     res.setHeader( 'content-type', 'application/json' );
@@ -299,7 +326,7 @@ const handleResponse = function ( res ) {
  * is 'GroupDefinition' instead of 'group_definition' <shrug>
  * 
  */
-function connect( host, port, success, error ) {
+const connect = function ( host, port, success, error ) {
   // STEP 1: request group status
   console.log( `\nATTEMPTING TO CONNECT TO ${host}:${port}` )
   doRequest( {
@@ -326,7 +353,8 @@ function connect( host, port, success, error ) {
           console.log( `-- RESPONSE RECEIVED` )
           handleResponse( res );
           if ( me.ip in group.members_by_ip ) {
-            console.log( `-- We're in!` )
+            group.members_by_ip[ me.ip ] = me;
+            console.log( `-- We're in!\n` )
             if ( success ) success();
           } else {
             if ( error ) error();
@@ -343,11 +371,29 @@ const startHeartbeat = function () {
   heartbeatTimer = setInterval( heartbeat, heartbeatInterval );
 }
 
+const showStatus = function () {
+  let statusLines = group.members.length + 2
+  if ( showStatus.advanceFirst ) {
+    for ( let i = 0; i < statusLines; i++ ) { console.log( '                                                ' ) }
+  }
+  showStatus.advanceFirst = false;
+  process.stdout.write( `${term.reset}${term.home}${term.up( statusLines )}` );
+  process.stdout.write( `\n=== LINK: ${group.name} (${group.members.length} members) ===\n` )
+  for ( let member of group.members ) {
+    const indicator = member.ip == me.ip ? ' me ' : ' •  ';
+    const color = member.connected ? term.green : term.red;
+    process.stdout.write( '                                                                   \r' );
+    process.stdout.write( `${color}${indicator}${term.white} ${member.name} - ${member.ip}:${member.port}\n` );
+  }
+  // process.stdout.write( `${term.reset}${term.home}${term.up( group.members.length + 2 )}` );
+}
 
+
+/** BEGIN MAIN CODE */
 const server = http.createServer( handleRequest );
 
-
 server.listen( me.port, me.ip, () => {
+  showStatus.advanceFirst = true;
 
   if ( connectOnStart ) {
     // if we connect successfully, the response will populate
@@ -355,6 +401,7 @@ server.listen( me.port, me.ip, () => {
     connect( linkHost, linkHostPort, () => {
       console.log( `CONNECTED TO GROUP: ${group.name}` )
       console.log( `-- LISTENING TO EVENTS AND SENDING HEARTBEATS --` )
+      me.connected = true;
     }, () => {
       console.log( `COULD NOT CONNECT` )
       exit();
@@ -367,6 +414,7 @@ server.listen( me.port, me.ip, () => {
     group.members_by_ip[ me.ip ] = me
     group.members.push( me );
     group.timestamp = timestamp();
+    me.connected = true;
 
     // now, we should be able to respond to any network link requests
     console.log( `WAITING FOR NETWORK LINK REQUESTS ON ${me.ip}:${me.port}` )

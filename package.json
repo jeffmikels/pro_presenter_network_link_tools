@@ -2,7 +2,7 @@
   "name": "pro_presenter_network_link_tools",
   "version": "1.0.0",
   "description": "Tools for using the ProPresenter Network Link API",
-  "main": "app.js",
+  "main": "simulator.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
