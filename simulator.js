@@ -288,29 +288,29 @@ const handleResponse = function ( res ) {
   group_definition: {
     timestamp: {
       seconds: 1647033165,
-        nanos: 85736000
+      nanos: 85736000
     },
     secret: "",
-      name: "LCC Primary",
-        members: [
-          {
-            ip: "192.168.50.11",
-            port: 60157
-          },
-          {
-            ip: "192.168.50.58",
-            port: 52273
-          },
-          {
-            ip: "192.168.10.50",
-            port: 60157
-          }
-        ]
+    name: "LCC Primary",
+    members: [
+      {
+        ip: "192.168.50.11",
+        port: 60157
+      },
+      {
+        ip: "192.168.50.58",
+        port: 52273
+      },
+      {
+        ip: "192.168.10.50",
+        port: 60157
+      }
+    ]
   },
   member_name: "paul"
 }
  * timestamp data seems to be irrelevant
- * each "group" seems to share the same timestamp values
+ * each member of a group shares the same timestamp values
  * so, after doing the status, just store what you get
  * and keep modifying that data
  * 
@@ -385,7 +385,6 @@ const showStatus = function () {
     process.stdout.write( '                                                                   \r' );
     process.stdout.write( `${color}${indicator}${term.white} ${member.name} - ${member.ip}:${member.port}\n` );
   }
-  // process.stdout.write( `${term.reset}${term.home}${term.up( group.members.length + 2 )}` );
 }
 
 
